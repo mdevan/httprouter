@@ -5,6 +5,10 @@
 
 // Package httprouter is a trie based high performance HTTP request router.
 //
+// Note: This is a fork of https://github.com/julienschmidt/httprouter, with one
+// single, API-breaking change: the handler functions are of the type
+// http.HandlerFunc rather than httprouter.Handle.
+//
 // A trivial example is:
 //
 //  package main
@@ -245,12 +249,6 @@ func (r *Router) Handler(method, path string, handler http.Handler) {
 			handler.ServeHTTP(w, req)
 		},
 	)
-}
-
-// HandlerFunc is an adapter which allows the usage of an http.HandlerFunc as a
-// request handle.
-func (r *Router) HandlerFunc(method, path string, handler http.HandlerFunc) {
-	r.Handler(method, path, handler)
 }
 
 // ServeFiles serves files from the given file system root.

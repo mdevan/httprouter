@@ -1,6 +1,6 @@
 
 This is a fork of [github.com/julienschmidt/httprouter](https://github.com/julienschmidt/httprouter),
-with one single, API-breaking change: the handler functions of the type
+with one single, API-breaking change: the handler functions are of the type
 `http.HandlerFunc` rather than `httprouter.Handle`.
 
 This is how a handler function would be defined in the original `httprouter`:
@@ -13,7 +13,7 @@ func Hello(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 }
 ```
 
-And here is the same with the new one:
+And here is the same in the new one:
 
 ```go
 import "github.com/mdevan/httprouter"
