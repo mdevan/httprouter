@@ -1,6 +1,7 @@
 // Copyright 2013 Julien Schmidt. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be found
 // in the LICENSE file.
+// Minor changes for using context.Context, Mahadevan 2017.
 
 // Package httprouter is a trie based high performance HTTP request router.
 //
@@ -15,12 +16,12 @@
 //      "log"
 //  )
 //
-//  func Index(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+//  func Index(w http.ResponseWriter, r *http.Request) {
 //      fmt.Fprint(w, "Welcome!\n")
 //  }
 //
-//  func Hello(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-//      fmt.Fprintf(w, "hello, %s!\n", ps.ByName("name"))
+//  func Hello(w http.ResponseWriter, r *http.Request) {
+//      fmt.Fprintf(w, "hello, %s!\n", httprouter.Param(r, "name"))
 //  }
 //
 //  func main() {
@@ -64,16 +65,9 @@
 //   /files/templates/article.html       match: filepath="/templates/article.html"
 //   /files                              no match, but the router would redirect
 //
-// The value of parameters is saved as a slice of the Param struct, consisting
-// each of a key and a value. The slice is passed to the Handle func as a third
-// parameter.
-// There are two ways to retrieve the value of a parameter:
-//  // by the name of the parameter
-//  user := ps.ByName("user") // defined by :user or *user
-//
-//  // by the index of the parameter. This way you can also get the name (key)
-//  thirdKey   := ps[2].Key   // the name of the 3rd parameter
-//  thirdValue := ps[2].Value // the value of the 3rd parameter
+// To retrieve the value of a parameter, use:
+//  user := httprouter.Param(r, "user") // defined by :user or *user
+// where r is the *http.Request that was passed to the handler.
 package httprouter
 
 import (
@@ -81,41 +75,36 @@ import (
 	"net/http"
 )
 
-// Param is a single URL parameter, consisting of a key and a value.
-type Param struct {
-	Key   string
-	Value string
+// param is a single URL parameter, consisting of a key and a value.
+type param struct {
+	key   string
+	value string
 }
 
-// Params is a Param-slice, as returned by the router.
+// params is a param-slice, as returned by the router.
 // The slice is ordered, the first URL parameter is also the first slice value.
 // It is therefore safe to read values by the index.
-type Params []Param
+type params []param
 
-// ByName returns the value of the first Param which key matches the given name.
-// If no matching Param is found, an empty string is returned.
-func (ps Params) ByName(name string) string {
-	for i := range ps {
-		if ps[i].Key == name {
-			return ps[i].Value
-		}
-	}
-	return ""
-}
-
+// keyType is the type of the objects we use as keys for Context.
 type keyType string
 
+// keyParams is the key that we use in Context, for storing the params object.
 var keyParams = keyType("params")
 
-func GetParam(r *http.Request, name string) (v string) {
-	if ps, ok := r.Context().Value(keyParams).(Params); ok && ps != nil {
-		v = ps.ByName(name)
+// Param returns the value of the named parameter specified in the route that
+// matched this handler. If no matching parameter is found, an empty string is
+// returned. The first argument, the *http.Request, must be the same as what
+// is passed in to the request handler function.
+func Param(r *http.Request, name string) (value string) {
+	if ps, ok := r.Context().Value(keyParams).(params); ok {
+		for i := range ps {
+			if ps[i].key == name {
+				value = ps[i].value
+				return
+			}
+		}
 	}
-	return
-}
-
-func GetParams(r *http.Request) (ps Params) {
-	ps, _ = r.Context().Value(keyParams).(Params)
 	return
 }
 
@@ -282,7 +271,7 @@ func (r *Router) ServeFiles(path string, root http.FileSystem) {
 	fileServer := http.FileServer(root)
 
 	r.GET(path, func(w http.ResponseWriter, req *http.Request) {
-		req.URL.Path = GetParam(req, "filepath")
+		req.URL.Path = Param(req, "filepath")
 		fileServer.ServeHTTP(w, req)
 	})
 }
@@ -298,7 +287,7 @@ func (r *Router) recv(w http.ResponseWriter, req *http.Request) {
 // If the path was found, it returns the handle function and the path parameter
 // values. Otherwise the third return value indicates whether a redirection to
 // the same path with an extra / without the trailing slash should be performed.
-func (r *Router) Lookup(method, path string) (http.HandlerFunc, Params, bool) {
+func (r *Router) Lookup(method, path string) (http.HandlerFunc, params, bool) {
 	if root := r.trees[method]; root != nil {
 		return root.getValue(path)
 	}

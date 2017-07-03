@@ -37,7 +37,7 @@ type nodeType uint8
 const (
 	static nodeType = iota // default
 	root
-	param
+	paramv
 	catchAll
 )
 
@@ -167,7 +167,7 @@ func (n *node) addRoute(path string, handle http.HandlerFunc) {
 				c := path[0]
 
 				// slash after param
-				if n.nType == param && c == '/' && len(n.children) == 1 {
+				if n.nType == paramv && c == '/' && len(n.children) == 1 {
 					n = n.children[0]
 					n.priority++
 					continue walk
@@ -253,7 +253,7 @@ func (n *node) insertChild(numParams uint8, path, fullPath string, handle http.H
 			}
 
 			child := &node{
-				nType:     param,
+				nType:     paramv,
 				maxParams: numParams,
 			}
 			n.children = []*node{child}
@@ -328,7 +328,7 @@ func (n *node) insertChild(numParams uint8, path, fullPath string, handle http.H
 // If no handle can be found, a TSR (trailing slash redirect) recommendation is
 // made if a handle exists with an extra (without the) trailing slash for the
 // given path.
-func (n *node) getValue(path string) (handle http.HandlerFunc, p Params, tsr bool) {
+func (n *node) getValue(path string) (handle http.HandlerFunc, p params, tsr bool) {
 walk: // outer loop for walking the tree
 	for {
 		if len(path) > len(n.path) {
@@ -357,7 +357,7 @@ walk: // outer loop for walking the tree
 				// handle wildcard child
 				n = n.children[0]
 				switch n.nType {
-				case param:
+				case paramv:
 					// find param end (either '/' or path end)
 					end := 0
 					for end < len(path) && path[end] != '/' {
@@ -367,12 +367,12 @@ walk: // outer loop for walking the tree
 					// save param value
 					if p == nil {
 						// lazy allocation
-						p = make(Params, 0, n.maxParams)
+						p = make(params, 0, n.maxParams)
 					}
 					i := len(p)
 					p = p[:i+1] // expand slice within preallocated capacity
-					p[i].Key = n.path[1:]
-					p[i].Value = path[:end]
+					p[i].key = n.path[1:]
+					p[i].value = path[:end]
 
 					// we need to go deeper!
 					if end < len(path) {
@@ -402,12 +402,12 @@ walk: // outer loop for walking the tree
 					// save param value
 					if p == nil {
 						// lazy allocation
-						p = make(Params, 0, n.maxParams)
+						p = make(params, 0, n.maxParams)
 					}
 					i := len(p)
 					p = p[:i+1] // expand slice within preallocated capacity
-					p[i].Key = n.path[2:]
-					p[i].Value = path
+					p[i].key = n.path[2:]
+					p[i].value = path
 
 					handle = n.handle
 					return
@@ -571,7 +571,7 @@ walk: // outer loop for walking the tree
 
 			n = n.children[0]
 			switch n.nType {
-			case param:
+			case paramv:
 				// find param end (either '/' or path end)
 				k := 0
 				for k < len(path) && path[k] != '/' {

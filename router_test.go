@@ -29,32 +29,20 @@ func (m *mockResponseWriter) WriteString(s string) (n int, err error) {
 
 func (m *mockResponseWriter) WriteHeader(int) {}
 
-func TestParams(t *testing.T) {
-	ps := Params{
-		Param{"param1", "value1"},
-		Param{"param2", "value2"},
-		Param{"param3", "value3"},
-	}
-	for i := range ps {
-		if val := ps.ByName(ps[i].Key); val != ps[i].Value {
-			t.Errorf("Wrong value for %s: Got %s; Want %s", ps[i].Key, val, ps[i].Value)
-		}
-	}
-	if val := ps.ByName("noKey"); val != "" {
-		t.Errorf("Expected empty string for not found key; got: %s", val)
-	}
-}
-
 func TestRouter(t *testing.T) {
 	router := New()
 
 	routed := false
 	router.Handle("GET", "/user/:name", func(w http.ResponseWriter, r *http.Request) {
 		routed = true
-		ps := r.Context().Value(keyParams).(Params)
-		want := Params{Param{"name", "gopher"}}
+		ps := r.Context().Value(keyParams).(params)
+		want := params{param{"name", "gopher"}}
 		if !reflect.DeepEqual(ps, want) {
 			t.Fatalf("wrong wildcard values: want %v, got %v", want, ps)
+		}
+		got := Param(r, "name")
+		if got != "gopher" {
+			t.Fatalf("wrong value for parameter: want gopher, got %v", got)
 		}
 	})
 
@@ -454,7 +442,7 @@ func TestRouterLookup(t *testing.T) {
 	wantHandle := func(_ http.ResponseWriter, _ *http.Request) {
 		routed = true
 	}
-	wantParams := Params{Param{"name", "gopher"}}
+	wantParams := params{param{"name", "gopher"}}
 
 	router := New()
 
